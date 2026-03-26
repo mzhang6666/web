@@ -10,11 +10,7 @@ const ArtifactMessageCard: React.FC<ArtifactMessageCardProps> = ({ fileName, arc
   const resolvedArchiveRoot = archiveRoot.trim() || '-'
 
   return (
-    <button
-      type="button"
-      className={clsx('ArtifactMessageCard', styles.root)}
-      onClick={onClick}
-    >
+    <div className={clsx('ArtifactMessageCard', styles.root)} onClick={onClick}>
       <div className={styles.left}>
         <Tooltip title={resolvedFileName}>
           <span className={clsx(styles.line, styles.fileName)}>{resolvedFileName}</span>
@@ -31,7 +27,7 @@ const ArtifactMessageCard: React.FC<ArtifactMessageCardProps> = ({ fileName, arc
           className={styles.icon}
         />
       </span>
-    </button>
+    </div>
   )
 }
 

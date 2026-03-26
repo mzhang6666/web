@@ -1,4 +1,4 @@
-import isString from 'lodash/isString'
+﻿import isString from 'lodash/isString'
 import intl from 'react-intl-universal'
 import type { DipChatKitAnswerEvent, DipChatKitPreviewPayload } from '../../../../types'
 import type { DipChatKitToolCardItem } from './types'

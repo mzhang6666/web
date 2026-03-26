@@ -243,33 +243,48 @@ const DipChatKitStoreProvider: React.FC<PropsWithChildren<DipChatKitStoreProvide
   }
 
   const setAutoScrollEnabled: DipChatKitStoreContextType['setAutoScrollEnabled'] = (enabled) => {
-    setStore((prevState) => ({
-      ...prevState,
-      scroll: {
-        ...prevState.scroll,
-        autoScrollEnabled: enabled,
-      },
-    }))
+    setStore((prevState) => {
+      if (prevState.scroll.autoScrollEnabled === enabled) {
+        return prevState
+      }
+      return {
+        ...prevState,
+        scroll: {
+          ...prevState.scroll,
+          autoScrollEnabled: enabled,
+        },
+      }
+    })
   }
 
   const setShowBackToBottom: DipChatKitStoreContextType['setShowBackToBottom'] = (show) => {
-    setStore((prevState) => ({
-      ...prevState,
-      scroll: {
-        ...prevState.scroll,
-        showBackToBottom: show,
-      },
-    }))
+    setStore((prevState) => {
+      if (prevState.scroll.showBackToBottom === show) {
+        return prevState
+      }
+      return {
+        ...prevState,
+        scroll: {
+          ...prevState.scroll,
+          showBackToBottom: show,
+        },
+      }
+    })
   }
 
   const setIsAtBottom: DipChatKitStoreContextType['setIsAtBottom'] = (isAtBottom) => {
-    setStore((prevState) => ({
-      ...prevState,
-      scroll: {
-        ...prevState.scroll,
-        isAtBottom,
-      },
-    }))
+    setStore((prevState) => {
+      if (prevState.scroll.isAtBottom === isAtBottom) {
+        return prevState
+      }
+      return {
+        ...prevState,
+        scroll: {
+          ...prevState.scroll,
+          isAtBottom,
+        },
+      }
+    })
   }
 
   const setChatPanelSize: DipChatKitStoreContextType['setChatPanelSize'] = (size) => {

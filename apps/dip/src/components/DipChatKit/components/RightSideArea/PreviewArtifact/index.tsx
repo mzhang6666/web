@@ -3,7 +3,7 @@ import { CodeHighlighter } from '@ant-design/x'
 import { Avatar, Button, Segmented, Spin, Tooltip, message } from 'antd'
 import clsx from 'clsx'
 import type React from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import intl from 'react-intl-universal'
 import { getSessionArchiveSubpath } from '../../../apis'
 import ScrollContainer from '../../ScrollContainer'
@@ -71,10 +71,43 @@ const resolveFileInitial = (fileName: string): string => {
   return normalized.slice(0, 1).toUpperCase()
 }
 
+const HTML_PREVIEW_STYLE_TAG = 'data-dip-chatkit-html-preview-style'
+
+const injectHtmlPreviewStyle = (html: string): string => {
+  const injectedStyle = `<style ${HTML_PREVIEW_STYLE_TAG}>html,body{overflow:hidden!important;margin:0;}body{min-height:100%;}</style>`
+  if (!html.trim()) return injectedStyle
+  if (html.includes(HTML_PREVIEW_STYLE_TAG)) return html
+  if (html.includes('</head>')) {
+    return html.replace('</head>', `${injectedStyle}</head>`)
+  }
+  if (html.includes('<html')) {
+    return html.replace(/<html[^>]*>/i, (match) => `${match}<head>${injectedStyle}</head>`)
+  }
+  return `${injectedStyle}${html}`
+}
+
+const getHtmlDocumentHeight = (doc: Document): number => {
+  const html = doc.documentElement
+  const body = doc.body
+  const candidates = [
+    html?.scrollHeight ?? 0,
+    html?.offsetHeight ?? 0,
+    html?.clientHeight ?? 0,
+    body?.scrollHeight ?? 0,
+    body?.offsetHeight ?? 0,
+    body?.clientHeight ?? 0,
+  ]
+  return Math.max(0, ...candidates)
+}
+
 const PreviewArtifact: React.FC<PreviewArtifactProps> = ({ payload, onClose }) => {
   const [activeTab, setActiveTab] = useState<ArtifactPreviewTab>('preview')
   const [downloading, setDownloading] = useState(false)
   const [state, setState] = useState<ArtifactPreviewState>(createInitialState)
+  const [htmlFrameHeight, setHtmlFrameHeight] = useState(0)
+  const htmlFrameRef = useRef<HTMLIFrameElement | null>(null)
+  const htmlResizeObserverRef = useRef<ResizeObserver | null>(null)
+  const htmlLoadTimerRef = useRef<number[]>([])
 
   const artifactInfo = payload.artifact
 
@@ -94,6 +127,50 @@ const PreviewArtifact: React.FC<PreviewArtifactProps> = ({ payload, onClose }) =
   }, [artifactInfo])
 
   const canSwitchCodeTab = state.mode === 'html' || state.mode === 'text'
+  const htmlSrcDoc = useMemo(() => {
+    if (state.mode !== 'html') return ''
+    return injectHtmlPreviewStyle(state.textContent)
+  }, [state.mode, state.textContent])
+
+  const clearHtmlResizeObserver = useCallback(() => {
+    if (htmlResizeObserverRef.current) {
+      htmlResizeObserverRef.current.disconnect()
+      htmlResizeObserverRef.current = null
+    }
+  }, [])
+
+  const clearHtmlLoadTimers = useCallback(() => {
+    if (!htmlLoadTimerRef.current.length) return
+    htmlLoadTimerRef.current.forEach((timerId) => {
+      window.clearTimeout(timerId)
+    })
+    htmlLoadTimerRef.current = []
+  }, [])
+
+  const syncHtmlFrameHeight = useCallback(() => {
+    const doc = htmlFrameRef.current?.contentDocument
+    if (!doc) return
+    const nextHeight = getHtmlDocumentHeight(doc)
+    setHtmlFrameHeight((prevHeight) => (prevHeight === nextHeight ? prevHeight : nextHeight))
+  }, [])
+
+  const bindHtmlResizeObserver = useCallback(() => {
+    const doc = htmlFrameRef.current?.contentDocument
+    if (!doc || typeof ResizeObserver === 'undefined') return
+
+    clearHtmlResizeObserver()
+
+    const observer = new ResizeObserver(() => {
+      syncHtmlFrameHeight()
+    })
+
+    observer.observe(doc.documentElement)
+    if (doc.body) {
+      observer.observe(doc.body)
+    }
+
+    htmlResizeObserverRef.current = observer
+  }, [clearHtmlResizeObserver, syncHtmlFrameHeight])
 
   useEffect(() => {
     if (activeTab === 'code' && !canSwitchCodeTab) {
@@ -202,6 +279,21 @@ const PreviewArtifact: React.FC<PreviewArtifactProps> = ({ payload, onClose }) =
     }
   }, [previewMeta])
 
+  useEffect(() => {
+    if (state.mode !== 'html') {
+      setHtmlFrameHeight(0)
+      clearHtmlLoadTimers()
+      clearHtmlResizeObserver()
+    }
+  }, [clearHtmlLoadTimers, clearHtmlResizeObserver, state.mode])
+
+  useEffect(() => {
+    return () => {
+      clearHtmlLoadTimers()
+      clearHtmlResizeObserver()
+    }
+  }, [clearHtmlLoadTimers, clearHtmlResizeObserver])
+
   const handleDownload = async () => {
     if (!previewMeta) return
 
@@ -277,11 +369,23 @@ const PreviewArtifact: React.FC<PreviewArtifactProps> = ({ payload, onClose }) =
 
     if (state.mode === 'html') {
       return (
-        <iframe
-          className={styles.htmlFrame}
-          title={payload.title || previewMeta?.fileName || 'artifact-html-preview'}
-          srcDoc={state.textContent}
-        />
+        <div className={styles.htmlFrameWrap}>
+          <iframe
+            ref={htmlFrameRef}
+            className={styles.htmlFrame}
+            style={{ height: `${Math.max(680, htmlFrameHeight)}px` }}
+            title={payload.title || previewMeta?.fileName || 'artifact-html-preview'}
+            srcDoc={htmlSrcDoc}
+            scrolling="no"
+            onLoad={() => {
+              clearHtmlLoadTimers()
+              syncHtmlFrameHeight()
+              bindHtmlResizeObserver()
+              htmlLoadTimerRef.current.push(window.setTimeout(syncHtmlFrameHeight, 60))
+              htmlLoadTimerRef.current.push(window.setTimeout(syncHtmlFrameHeight, 240))
+            }}
+          />
+        </div>
       )
     }
 
@@ -365,4 +469,3 @@ const PreviewArtifact: React.FC<PreviewArtifactProps> = ({ payload, onClose }) =
 }
 
 export default PreviewArtifact
-

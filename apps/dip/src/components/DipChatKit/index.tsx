@@ -8,7 +8,7 @@ import zhCNAntd from 'antd/locale/zh_CN'
 import zhTW from 'antd/locale/zh_TW'
 import clsx from 'clsx'
 import type React from 'react'
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import ChatContentArea from './components/ChatContentArea'
 import DipChatHeader from './components/DipChatHeader'
 import RightSideArea from './components/RightSideArea'
@@ -163,4 +163,6 @@ const DipChatKit: React.FC<DipChatKitProps> = ({ initialSubmitPayload, locale, .
   )
 }
 
-export default DipChatKit
+const MemoizedDipChatKit = memo(DipChatKit)
+
+export default MemoizedDipChatKit

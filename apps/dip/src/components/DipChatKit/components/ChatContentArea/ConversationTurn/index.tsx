@@ -1,5 +1,6 @@
 ﻿import clsx from 'clsx'
 import type React from 'react'
+import { memo } from 'react'
 import AiAnswerBubble from './AiAnswerBubble'
 import UserQuestionBubble from './UserQuestionBubble'
 import styles from './index.module.less'
@@ -46,4 +47,4 @@ const ConversationTurn: React.FC<ConversationTurnProps> = ({
   )
 }
 
-export default ConversationTurn
+export default memo(ConversationTurn)

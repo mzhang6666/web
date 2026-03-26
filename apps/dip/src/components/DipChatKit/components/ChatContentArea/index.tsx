@@ -14,7 +14,7 @@ import {
 import type { DipChatKitResponseStreamChunk } from '../../apis/types'
 import { useDipChatKitStore } from '../../store'
 import { isAsyncIterable, normalizeStreamChunk } from '../../utils'
-import type { DipChatKitAnswerEvent } from '../../types'
+import type { DipChatKitAnswerEvent, DipChatKitPreviewPayload } from '../../types'
 import AiPromptInput from '../AiPromptInput'
 import type { AiPromptSubmitPayload } from '../AiPromptInput/types'
 import ConversationTurn from './ConversationTurn'
@@ -51,10 +51,11 @@ const ChatContentArea: React.FC<ChatContentAreaProps> = ({
     openPreview,
     setAutoScrollEnabled,
     setShowBackToBottom,
-    setIsAtBottom,
   } = useDipChatKitStore()
   const setAutoScrollEnabledRef = useRef(setAutoScrollEnabled)
   const setShowBackToBottomRef = useRef(setShowBackToBottom)
+  const openPreviewRef = useRef(openPreview)
+  const messageTurnsRef = useRef(messageTurns)
 
   const streamLoading = useMemo(() => {
     return messageTurns.some((turn) => turn.answerStreaming)
@@ -182,6 +183,14 @@ const ChatContentArea: React.FC<ChatContentAreaProps> = ({
   useEffect(() => {
     setShowBackToBottomRef.current = setShowBackToBottom
   }, [setShowBackToBottom])
+
+  useEffect(() => {
+    openPreviewRef.current = openPreview
+  }, [openPreview])
+
+  useEffect(() => {
+    messageTurnsRef.current = messageTurns
+  }, [messageTurns])
 
   const resolveEmployeeId = useCallback(
     (payload: AiPromptSubmitPayload): string => {
@@ -325,6 +334,11 @@ const ChatContentArea: React.FC<ChatContentAreaProps> = ({
       startAnswerStream,
     ],
   )
+  const runSendFlowRef = useRef(runSendFlow)
+
+  useEffect(() => {
+    runSendFlowRef.current = runSendFlow
+  }, [runSendFlow])
 
   useEffect(() => {
     if (!scroll.autoScrollEnabled) return
@@ -458,24 +472,67 @@ const ChatContentArea: React.FC<ChatContentAreaProps> = ({
     }
   }, [])
 
+  const handleEditQuestion = useCallback((_turnId: string, _question: string) => {
+    // Intentionally left blank: edit confirm handling will be added in future iterations.
+  }, [])
+
+  const handleCopyQuestion = useCallback(
+    (question: string) => {
+      void copyText(question, intl.get('dipChatKit.questionCopied').d('问题复制成功') as string)
+    },
+    [copyText],
+  )
+
+  const handleCopyAnswer = useCallback(
+    (answer: string) => {
+      void copyText(answer, intl.get('dipChatKit.answerCopied').d('回答复制成功') as string)
+    },
+    [copyText],
+  )
+
+  const handleRegenerateAnswer = useCallback((turnId: string) => {
+    const targetTurn = messageTurnsRef.current.find((item) => item.id === turnId)
+    if (!targetTurn) {
+      message.error(
+        intl.get('dipChatKit.targetQuestionNotFound').d('未找到可重新生成的问题'),
+      )
+      return
+    }
+
+    const regeneratePayload = buildRegeneratePayload(targetTurn)
+    setAutoScrollEnabledRef.current(true)
+    setShowBackToBottomRef.current(false)
+    void runSendFlowRef.current(regeneratePayload, turnId, true)
+  }, [])
+
+  const handleOpenPreview = useCallback((turnId: string, payload: DipChatKitPreviewPayload) => {
+    openPreviewRef.current(turnId, payload)
+  }, [])
+
+  const handleUserScrollUp = useCallback(() => {
+    setAutoScrollEnabled(false)
+    setShowBackToBottom(true)
+  }, [setAutoScrollEnabled, setShowBackToBottom])
+
+  const handleReachBottomChange = useCallback(
+    (isAtBottom: boolean) => {
+      if (isAtBottom) {
+        setShowBackToBottom(false)
+        return
+      }
+      setAutoScrollEnabled(false)
+      setShowBackToBottom(true)
+    },
+    [setAutoScrollEnabled, setShowBackToBottom],
+  )
+
   return (
     <div className={clsx('ChatContentArea', styles.root)}>
       <ScrollContainer
         ref={scrollRef}
         className={styles.scrollArea}
-        onUserScrollUp={() => {
-          setAutoScrollEnabled(false)
-          setShowBackToBottom(true)
-        }}
-        onReachBottomChange={(isAtBottom) => {
-          setIsAtBottom(isAtBottom)
-          if (isAtBottom) {
-            setShowBackToBottom(false)
-            return
-          }
-          setAutoScrollEnabled(false)
-          setShowBackToBottom(true)
-        }}
+        onUserScrollUp={handleUserScrollUp}
+        onReachBottomChange={handleReachBottomChange}
       >
         <div className={styles.messageList}>
           <div className={styles.messageListContent}>
@@ -508,40 +565,11 @@ const ChatContentArea: React.FC<ChatContentAreaProps> = ({
                 <ConversationTurn
                   key={turn.id}
                   turn={turn}
-                  onEditQuestion={() => {
-                    // Intentionally left blank: edit confirm handling will be added in future iterations.
-                  }}
-                  onCopyQuestion={(question) => {
-                    void copyText(
-                      question,
-                      intl.get('dipChatKit.questionCopied').d('问题复制成功') as string,
-                    )
-                  }}
-                  onCopyAnswer={(answer) => {
-                    void copyText(
-                      answer,
-                      intl.get('dipChatKit.answerCopied').d('回答复制成功') as string,
-                    )
-                  }}
-                  onRegenerateAnswer={(turnId) => {
-                    const targetTurn = messageTurns.find((item) => item.id === turnId)
-                    if (!targetTurn) {
-                      message.error(
-                        intl
-                          .get('dipChatKit.targetQuestionNotFound')
-                          .d('未找到可重新生成的问题'),
-                      )
-                      return
-                    }
-
-                    const regeneratePayload = buildRegeneratePayload(targetTurn)
-                    setAutoScrollEnabled(true)
-                    setShowBackToBottom(false)
-                    void runSendFlow(regeneratePayload, turnId, true)
-                  }}
-                  onOpenPreview={(turnId, payload) => {
-                    openPreview(turnId, payload)
-                  }}
+                  onEditQuestion={handleEditQuestion}
+                  onCopyQuestion={handleCopyQuestion}
+                  onCopyAnswer={handleCopyAnswer}
+                  onRegenerateAnswer={handleRegenerateAnswer}
+                  onOpenPreview={handleOpenPreview}
                 />
               )
             })}
