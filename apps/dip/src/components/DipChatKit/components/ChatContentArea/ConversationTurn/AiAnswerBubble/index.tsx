@@ -12,7 +12,7 @@ import { Button, Tag, Tooltip } from 'antd'
 import clsx from 'clsx'
 import isEmpty from 'lodash/isEmpty'
 import type React from 'react'
-import { Children, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import intl from 'react-intl-universal'
 import IconFont from '@/components/IconFont'
 import MessageActions from '../MessageActions'
@@ -32,7 +32,6 @@ import {
   isToolRoleEvent,
   normalizeLanguage,
   normalizeMarkdownText,
-  splitTextByMarkdownFileName,
 } from './utils'
 
 const TOOL_CARD_COLLAPSED_MAX_HEIGHT = 200
@@ -153,59 +152,6 @@ const AiAnswerBubble: React.FC<AiAnswerBubbleProps> = ({
       onOpenPreview(buildMarkdownFilePreviewPayload(fileName, sourceContent))
     }
 
-    const renderTextWithMarkdownFilePreview = (
-      text: string,
-      keyPrefix: string,
-    ): React.ReactNode[] => {
-      const segments = splitTextByMarkdownFileName(text)
-      if (segments.length === 0) {
-        return [text]
-      }
-
-      return segments.map((segment, index) => {
-        if (segment.type === 'text') {
-          return <span key={`${keyPrefix}-text-${index}`}>{segment.value}</span>
-        }
-
-        return (
-          <span
-            key={`${keyPrefix}-file-${index}`}
-            className={styles.markdownFileLink}
-            role="button"
-            tabIndex={0}
-            onClick={() => {
-              openMarkdownFilePreview(segment.value, segment.value)
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                openMarkdownFilePreview(segment.value, segment.value)
-              }
-            }}
-          >
-            {segment.value}
-          </span>
-        )
-      })
-    }
-
-    const renderChildrenWithMarkdownFilePreview = (
-      children: React.ReactNode,
-      keyPrefix: string,
-    ): React.ReactNode[] => {
-      const nodes = Children.toArray(children)
-      return nodes.reduce<React.ReactNode[]>((result, node, index) => {
-        if (typeof node === 'string') {
-          const textNodes = renderTextWithMarkdownFilePreview(node, `${keyPrefix}-${index}`)
-          result.push(...textNodes)
-          return result
-        }
-
-        result.push(node)
-        return result
-      }, [])
-    }
-
     const CodeRenderer: React.FC<MarkdownComponentProps> = ({
       children,
       lang,
@@ -294,14 +240,6 @@ const AiAnswerBubble: React.FC<AiAnswerBubbleProps> = ({
       )
     }
 
-    const ParagraphRenderer: React.FC<MarkdownComponentProps> = ({ children, className }) => {
-      return <p className={className}>{renderChildrenWithMarkdownFilePreview(children, 'p')}</p>
-    }
-
-    const ListItemRenderer: React.FC<MarkdownComponentProps> = ({ children, className }) => {
-      return <li className={className}>{renderChildrenWithMarkdownFilePreview(children, 'li')}</li>
-    }
-
     const DivRenderer: React.FC<MarkdownComponentProps> = ({ children, className, domNode }) => {
       const attrs = getDomDataAttributes(domNode)
       const isPreviewCard = attrs['data-preview-card'] === 'true'
@@ -331,8 +269,6 @@ const AiAnswerBubble: React.FC<AiAnswerBubbleProps> = ({
     return {
       code: CodeRenderer,
       a: LinkRenderer,
-      p: ParagraphRenderer,
-      li: ListItemRenderer,
       div: DivRenderer,
     }
   }, [onOpenPreview, turn.sessionKey])

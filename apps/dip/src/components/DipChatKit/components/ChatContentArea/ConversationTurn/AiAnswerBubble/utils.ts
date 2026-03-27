@@ -3,7 +3,6 @@ import intl from 'react-intl-universal'
 import type { DipChatKitAnswerEvent, DipChatKitPreviewPayload } from '../../../../types'
 import type { DipChatKitToolCardItem } from './types'
 
-const MARKDOWN_FILE_NAME_PATTERN = /([^\s"'<>()[\]{}]+?\.md)(?=$|[\s,.;:!?"'<>()[\]{}])/gi
 const TOOL_INLINE_THRESHOLD = 80
 const TOOL_PREVIEW_MAX_LINES = 2
 const TOOL_PREVIEW_MAX_CHARS = 100
@@ -176,49 +175,6 @@ export const buildCardPreviewPayload = (
     content,
     sourceType: 'card',
   }
-}
-
-export interface TextSegment {
-  type: 'text' | 'file'
-  value: string
-}
-
-export const splitTextByMarkdownFileName = (text: string): TextSegment[] => {
-  if (!text) return []
-
-  const segments: TextSegment[] = []
-  let lastIndex = 0
-  MARKDOWN_FILE_NAME_PATTERN.lastIndex = 0
-
-  let match = MARKDOWN_FILE_NAME_PATTERN.exec(text)
-  while (match) {
-    const fullMatch = match[0]
-    const matchIndex = match.index
-
-    if (matchIndex > lastIndex) {
-      segments.push({
-        type: 'text',
-        value: text.slice(lastIndex, matchIndex),
-      })
-    }
-
-    segments.push({
-      type: 'file',
-      value: fullMatch,
-    })
-
-    lastIndex = matchIndex + fullMatch.length
-    match = MARKDOWN_FILE_NAME_PATTERN.exec(text)
-  }
-
-  if (lastIndex < text.length) {
-    segments.push({
-      type: 'text',
-      value: text.slice(lastIndex),
-    })
-  }
-
-  return segments
 }
 
 export const extractMarkdownFileNameFromHref = (href: string): string => {

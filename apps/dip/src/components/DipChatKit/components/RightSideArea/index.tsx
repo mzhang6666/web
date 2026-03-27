@@ -1,5 +1,9 @@
+import { CloseOutlined } from '@ant-design/icons'
+import { Button, Tooltip } from 'antd'
 import clsx from 'clsx'
 import type React from 'react'
+import intl from 'react-intl-universal'
+import ScrollContainer from '../ScrollContainer'
 import PreviewArtifact from './PreviewArtifact'
 import PreviewCode from './PreviewCode'
 import PreviewMarkdown from './PreviewMarkdown'
@@ -9,13 +13,9 @@ import styles from './index.module.less'
 import type { RightSideAreaProps } from './types'
 
 const RightSideArea: React.FC<RightSideAreaProps> = ({ visible, payload, onClose }) => {
-  const renderPreviewContent = () => {
+  const renderGenericPreviewBody = () => {
     if (!payload) {
       return <PreviewPlaceholder />
-    }
-
-    if (payload.sourceType === 'artifact') {
-      return <PreviewArtifact payload={payload} onClose={onClose} />
     }
 
     if (!payload.content) {
@@ -31,6 +31,45 @@ const RightSideArea: React.FC<RightSideAreaProps> = ({ visible, payload, onClose
     }
 
     return <PreviewMarkdown content={payload.content} />
+  }
+
+  const renderPreviewContent = () => {
+    if (!payload) {
+      return <PreviewPlaceholder />
+    }
+
+    if (payload.sourceType === 'artifact') {
+      return <PreviewArtifact payload={payload} onClose={onClose} />
+    }
+
+    const previewTitle =
+      payload.title.trim() || (intl.get('dipChatKit.previewAreaTitle').d('预览') as string)
+    const closeTitle = intl.get('dipChatKit.closePreview').d('关闭预览') as string
+
+    return (
+      <div className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div className={styles.panelHeaderLeft}>
+            <Tooltip title={previewTitle}>
+              <span className={styles.panelTitle}>{previewTitle}</span>
+            </Tooltip>
+          </div>
+          <div className={styles.panelHeaderRight}>
+            <Tooltip title={closeTitle}>
+              <Button
+                type="text"
+                aria-label={closeTitle}
+                icon={<CloseOutlined />}
+                onClick={onClose}
+              />
+            </Tooltip>
+          </div>
+        </div>
+        <div className={styles.panelBody}>
+          <ScrollContainer className={styles.panelBodyScroll}>{renderGenericPreviewBody()}</ScrollContainer>
+        </div>
+      </div>
+    )
   }
 
   return (
